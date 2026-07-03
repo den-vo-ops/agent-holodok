@@ -4,7 +4,7 @@
 > Детальные пошаговые TDD-шаги ядра — [docs/superpowers/plans/2026-07-03-holodok-agent-core.md](docs/superpowers/plans/2026-07-03-holodok-agent-core.md).
 > Этот файл — карта «куда идём» и «что уже сделано». Обновляется по ходу работы (см. §6).
 >
-> Дата создания: 2026-07-03 · Последнее обновление: 2026-07-03
+> Дата создания: 2026-07-03 · Последнее обновление: 2026-07-03 (Фаза 1A реализована, 49 тестов зелёные)
 
 ---
 
@@ -27,7 +27,7 @@
 | Фаза | Цель | Готовое состояние | Зависит от | Статус |
 |---|---|---|---|:---:|
 | **0. Предпосылки** | Снять неопределённости до начала кода (spec §9, §11) | Есть решение go/no-go по горячим лидам; известны параметры VPS; ясно, нужен ли антибот-прокси и укладывается ли в бюджет | — | ⬜ |
-| **1A. Ядро агента** | Рабочий бот: доступ, обучение стилю, контент по кнопкам, память правил, черновики, метрики | Бот отвечает владельцу; онбординг→стиль; кнопки-сценарии; «запомни»; учёт «Опубликовал»; ежемесячный опрос; тесты зелёные | — | ⬜ |
+| **1A. Ядро агента** | Рабочий бот: доступ, обучение стилю, контент по кнопкам, память правил, черновики, метрики | Бот отвечает владельцу; онбординг→стиль; кнопки-сценарии; «запомни»; учёт «Опубликовал»; ежемесячный опрос; тесты зелёные | — | ✅ |
 | **1B. Обработка ошибок LLM** | Ни один сбой ИИ не оставляет мастера без ответа | Любая ошибка LLM → понятный русский текст пользователю + полный трейсбек в лог | 1A (Task 5, Task 10) | ⬜ |
 | **1C. Разведка Авито/Юла + отчёт** | Ежедневный сбор по конкурентам, еженедельный отчёт | Собираются цены/офферы; история «было→стало→дельта»; автодобавление конкурентов; недельный отчёт по расписанию; точечный запрос; отказоустойчивость сбора | 1A + 1B | ⬜ |
 | **1D. Горячие лиды** | Ежедневный поиск прямых запросов клиентов в локальных чатах | Найденные лиды попадают в блок «Требует внимания» отчёта | Фаза 0 (go) + 1A + 1B | ⛔ |
@@ -63,24 +63,26 @@
 
 | № | Задача (→ Task в плане ядра) | Файлы | Тесты | Зависит от | Статус |
 |---|---|---|---|---|:---:|
-| 1A-1 | Каркас пакета (Task 1) | `requirements.txt`, `pytest.ini`, `holodok_agent/**/__init__.py`, `.env.example`, `.gitignore` | — (pytest «no tests») | — | ⬜ |
-| 1A-2 | Загрузчик конфига (Task 2) | `holodok_agent/config.py` | `tests/test_config.py` | 1A-1 | ⬜ |
-| 1A-3 | Хранилище SQLite (Task 3) | `holodok_agent/db.py` | `tests/test_db.py` | 1A-1 | ⬜ |
-| 1A-4 | Whitelist владельца (Task 4) | `holodok_agent/bot/auth.py` | `tests/test_auth.py` | 1A-1 | ⬜ |
-| 1A-5 | Клиент Claude API (Task 5) | `holodok_agent/llm/client.py` | `tests/test_client.py` | 1A-1 | ⬜ |
-| 1A-6 | Анализ стиля по образцам (Task 6) | `holodok_agent/llm/style.py` | `tests/test_style.py` | 1A-5 | ⬜ |
-| 1A-7 | Извлечение правил «запомни, …» (Task 7) | `holodok_agent/rules.py` | `tests/test_rules.py` | 1A-1 | ⬜ |
-| 1A-8 | Генерация контента по сценариям (Task 8) | `holodok_agent/llm/content.py` | `tests/test_content.py` | 1A-5 | ⬜ |
-| 1A-9 | Клавиатуры и парсинг callback (Task 9) | `holodok_agent/bot/keyboards.py` | `tests/test_keyboards.py` | 1A-1 | ⬜ |
-| 1A-10 | Хендлеры: онбординг/сценарии/правила/публикация (Task 10) | `holodok_agent/bot/handlers.py`, `holodok_agent/bot/main.py` | `tests/test_handlers.py` + ручной smoke | 1A-3,4,5,6,7,8,9 | ⬜ |
-| 1A-11 | Планировщик ежемесячного опроса метрик (Task 11) | `holodok_agent/bot/scheduler.py`, `main.py` | `tests/test_scheduler.py` | 1A-10 | ⬜ |
-| 1A-12 | Деплой systemd + README (Task 12) | `deploy/holodok-agent.service`, `README.md` | ручная проверка на VPS | 1A-11, Фаза 0.4 | ⬜ |
+| 1A-1 | Каркас пакета (Task 1) | `requirements.txt`, `pytest.ini`, `holodok_agent/**/__init__.py`, `.env.example`, `.gitignore` | — (pytest «no tests») | — | ✅ |
+| 1A-2 | Загрузчик конфига (Task 2) | `holodok_agent/config.py` | `tests/test_config.py` | 1A-1 | ✅ |
+| 1A-3 | Хранилище SQLite (Task 3) | `holodok_agent/db.py` | `tests/test_db.py` | 1A-1 | ✅ |
+| 1A-4 | Whitelist владельца (Task 4) | `holodok_agent/bot/auth.py` | `tests/test_auth.py` | 1A-1 | ✅ |
+| 1A-5 | Клиент Claude API (Task 5) | `holodok_agent/llm/client.py` | `tests/test_client.py` | 1A-1 | ✅ |
+| 1A-6 | Анализ стиля по образцам (Task 6) | `holodok_agent/llm/style.py` | `tests/test_style.py` | 1A-5 | ✅ |
+| 1A-7 | Извлечение правил «запомни, …» (Task 7) | `holodok_agent/rules.py` | `tests/test_rules.py` | 1A-1 | ✅ |
+| 1A-8 | Генерация контента по сценариям (Task 8) | `holodok_agent/llm/content.py` | `tests/test_content.py` | 1A-5 | ✅ |
+| 1A-9 | Клавиатуры и парсинг callback (Task 9) | `holodok_agent/bot/keyboards.py` | `tests/test_keyboards.py` | 1A-1 | ✅ |
+| 1A-10 | Хендлеры: онбординг/сценарии/правила/публикация (Task 10) | `holodok_agent/bot/handlers.py`, `holodok_agent/bot/main.py` | `tests/test_handlers.py` + ручной smoke | 1A-3,4,5,6,7,8,9 | ✅ |
+| 1A-11 | Планировщик ежемесячного опроса метрик (Task 11) | `holodok_agent/bot/scheduler.py`, `main.py` | `tests/test_scheduler.py` | 1A-10 | ✅ |
+| 1A-12 | Деплой systemd + README (Task 12) | `deploy/holodok-agent.service`, `README.md` | ручная проверка на VPS | 1A-11, Фаза 0.4 | ✅ |
 
 **Критерии готовности 1A:**
-- [ ] `python -m pytest` — всё зелёное.
-- [ ] Пройден ручной smoke-тест из плана ядра (Task 10 Step 6): `/start`→онбординг→`/done`→меню→«Дай идею»→«Опубликовал»→«запомни, …».
-- [ ] Whitelist работает: не-владелец не получает ответа.
-- [ ] Нет TODO/заглушек в новом коде.
+- [x] `python -m pytest` — всё зелёное (49 passed на 2026-07-03).
+- [ ] Пройден ручной smoke-тест из плана ядра (Task 10 Step 6): `/start`→онбординг→`/done`→меню→«Дай идею»→«Опубликовал»→«запомни, …». — **ожидает владельца** (нужны реальные токены Telegram/Claude).
+- [x] Whitelist работает в коде: фильтр `IsOwner` навешен на router (unit-тест `is_owner`); живой прогон «не-владелец не получает ответа» — в рамках ручного smoke.
+- [x] Нет TODO/заглушек в новом коде.
+
+> Код Фазы 1A завершён (49 тестов зелёные, точка входа собирается). «По-настоящему готово» — после Фазы 1B (обработка ошибок LLM), которая идёт следующей и дорабатывает `client.py`/`handlers.py`/`main.py`.
 
 **Блокеры:** 1A-12 частично ждёт Фазу 0.4 (параметры VPS), но код бота от неё не зависит.
 
@@ -212,18 +214,18 @@
 | 0.3 Go/no-go по лидам | Явное решение зафиксировано | — | ⬜ | 0.1, 0.2 |
 | 0.4 Параметры VPS | Известны ОС/ресурсы | — | ⬜ | — |
 | 0.5 Прокси/бюджет | Эмпирический вывод по антиботу | — | ⬜ | — |
-| 1A-1 Каркас | Пакет, requirements, pytest.ini, .env.example | — | ⬜ | — |
-| 1A-2 Конфиг | `load_config()` + тесты | — | ⬜ | 1A-1 |
-| 1A-3 SQLite | стиль/правила/черновики/метрики + тесты | — | ⬜ | 1A-1 |
-| 1A-4 Whitelist | `is_owner()` + тесты | — | ⬜ | 1A-1 |
-| 1A-5 Claude-клиент | `ClaudeClient.complete()` + тесты | — | ⬜ | 1A-1 |
-| 1A-6 Анализ стиля | `analyze_style()` + тесты | — | ⬜ | 1A-5 |
-| 1A-7 Правила | `extract_rule_from_message()` + тесты | — | ⬜ | 1A-1 |
-| 1A-8 Контент | `generate_content()` + тесты | — | ⬜ | 1A-5 |
-| 1A-9 Клавиатуры | меню/парсинг callback + тесты | — | ⬜ | 1A-1 |
-| 1A-10 Хендлеры | онбординг/сценарии/правила/публикация + тесты + smoke | — | ⬜ | 1A-3..9 |
-| 1A-11 Планировщик метрик | ежемесячный опрос + тесты | — | ⬜ | 1A-10 |
-| 1A-12 Деплой | systemd + README | — | ⬜ | 1A-11, 0.4 |
+| 1A-1 Каркас | Пакет, requirements, pytest.ini, .env.example | `holodok_agent/`, `tests/`, requirements.txt, pytest.ini, .env.example, .gitignore (commit a16062d) | ✅ | — |
+| 1A-2 Конфиг | `load_config()` + тесты | `config.py`, 3 теста (5abc828) | ✅ | 1A-1 |
+| 1A-3 SQLite | стиль/правила/черновики/метрики + тесты | `db.py`, 7 тестов (1d6ae16) | ✅ | 1A-1 |
+| 1A-4 Whitelist | `is_owner()` + тесты | `bot/auth.py`, 2 теста (f7ff078) | ✅ | 1A-1 |
+| 1A-5 Claude-клиент | `ClaudeClient.complete()` + тесты | `llm/client.py`, 2 теста (1a94f69) | ✅ | 1A-1 |
+| 1A-6 Анализ стиля | `analyze_style()` + тесты | `llm/style.py`, 5 тестов (3269396) | ✅ | 1A-5 |
+| 1A-7 Правила | `extract_rule_from_message()` + тесты | `rules.py`, 5 тестов (020c79c) | ✅ | 1A-1 |
+| 1A-8 Контент | `generate_content()` + тесты | `llm/content.py`, 8 тестов (782ef81) | ✅ | 1A-5 |
+| 1A-9 Клавиатуры | меню/парсинг callback + тесты | `bot/keyboards.py`, 7 тестов (b667f6d) | ✅ | 1A-1 |
+| 1A-10 Хендлеры | онбординг/сценарии/правила/публикация + тесты + smoke | `bot/handlers.py`, `bot/main.py`, 8 тестов; live-smoke ожидает владельца (a87b6a7) | ✅ | 1A-3..9 |
+| 1A-11 Планировщик метрик | ежемесячный опрос + тесты | `bot/scheduler.py`, 2 теста (94acb32) | ✅ | 1A-10 |
+| 1A-12 Деплой | systemd + README | `deploy/holodok-agent.service`, `README.md`; проверка на VPS ожидает владельца (13906ce) | ✅ | 1A-11, 0.4 |
 | 1B-1 `errors.py` | `LLMError` + `to_llm_error()` + тесты | — | ⬜ | 1A-1 |
 | 1B-2 Клиент ловит | лог + `raise LLMError` + тесты | — | ⬜ | 1B-1, 1A-5 |
 | 1B-3 Хендлеры ловят | русский текст пользователю + тесты | — | ⬜ | 1B-2, 1A-10 |
