@@ -5,8 +5,10 @@ import logging
 from aiogram import Bot, Dispatcher
 from aiogram.client.default import DefaultBotProperties
 from aiogram.enums import ParseMode
+from apscheduler.schedulers.asyncio import AsyncIOScheduler
 
 from holodok_agent.bot.handlers import build_router
+from holodok_agent.bot.scheduler import schedule_monthly_metrics_prompt
 from holodok_agent.config import load_config
 from holodok_agent.db import connect
 from holodok_agent.llm.client import ClaudeClient
@@ -24,6 +26,10 @@ async def run() -> None:
     dp["claude_client"] = claude_client
     dp["owner_id"] = config.owner_telegram_id
     dp.include_router(build_router(config.owner_telegram_id))
+
+    scheduler = AsyncIOScheduler()
+    schedule_monthly_metrics_prompt(scheduler, bot, config.owner_telegram_id, dp.storage)
+    scheduler.start()
 
     await dp.start_polling(bot)
 
