@@ -3,3 +3,4 @@ __pycache__/
 *.pyc
 .env
 holodok_agent.db
+.claude/scheduled_tasks.lock
