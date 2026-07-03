@@ -16,6 +16,7 @@ from holodok_agent.bot.keyboards import (
     parse_scenario_callback,
 )
 from holodok_agent.llm.content import generate_content
+from holodok_agent.llm.errors import LLMError
 from holodok_agent.llm.style import analyze_style
 from holodok_agent.rules import extract_rule_from_message
 
@@ -78,7 +79,11 @@ async def handle_onboarding_done(message: Message, state: FSMContext, conn, clau
     if not samples:
         await message.answer("Пришли хотя бы один текст перед /done.")
         return
-    profile = analyze_style(claude_client, samples)
+    try:
+        profile = analyze_style(claude_client, samples)
+    except LLMError as exc:
+        await message.answer(exc.user_message)
+        return
     db.save_style_profile(
         conn,
         profile["tone_summary"],
@@ -125,7 +130,11 @@ async def _generate_and_send(message: Message, conn, claude_client, scenario: st
         await message.answer("Сначала пройди обучение стилю: напиши /start.")
         return
     hard_rules = db.get_hard_rules(conn)
-    text = generate_content(claude_client, profile, hard_rules, scenario, user_input)
+    try:
+        text = generate_content(claude_client, profile, hard_rules, scenario, user_input)
+    except LLMError as exc:
+        await message.answer(exc.user_message)
+        return
     draft_id = db.record_draft(conn, scenario)
     LAST_GENERATION[draft_id] = (scenario, user_input)
     await message.answer(text, reply_markup=build_regenerate_and_publish_keyboard(draft_id))
