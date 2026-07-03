@@ -14,9 +14,10 @@ _BAD_REQUEST_MESSAGE = (
     "Не получилось обработать запрос — возможно, текст слишком длинный. Попробуйте короче."
 )
 _STATUS_ERROR_MESSAGE = "ИИ временно недоступен. Попробуйте ещё раз чуть позже."
-_FALLBACK_MESSAGE = (
-    "Извините, не получилось подготовить текст. Попробуйте ещё раз через пару минут."
-)
+
+# Public: reused by the global aiogram error handler (bot/main.py) as the last-resort
+# message for failures that never reached ClaudeClient.complete (e.g. bugs in handler code).
+FALLBACK_MESSAGE = "Извините, не получилось подготовить текст. Попробуйте ещё раз через пару минут."
 
 
 class LLMError(Exception):
@@ -39,4 +40,4 @@ def to_llm_error(exc: Exception) -> LLMError:
         return LLMError(str(exc), user_message=_BAD_REQUEST_MESSAGE)
     if isinstance(exc, anthropic.APIStatusError):
         return LLMError(str(exc), user_message=_STATUS_ERROR_MESSAGE)
-    return LLMError(str(exc), user_message=_FALLBACK_MESSAGE)
+    return LLMError(str(exc), user_message=FALLBACK_MESSAGE)
