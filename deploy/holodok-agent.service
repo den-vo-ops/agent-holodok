@@ -1,0 +1,16 @@
+# deploy/holodok-agent.service
+[Unit]
+Description=Holodok Agent Telegram Bot
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+WorkingDirectory=/opt/holodok-agent
+EnvironmentFile=/opt/holodok-agent/.env
+ExecStart=/opt/holodok-agent/.venv/bin/python -m holodok_agent.bot.main
+Restart=on-failure
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target
