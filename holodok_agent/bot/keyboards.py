@@ -50,6 +50,7 @@ MENU_SHOW_REPORT = "📊 Показать отчёт"
 MENU_ASK_MARKET = "🔍 Спросить о рынке"
 MENU_MY_RULES = "📝 Мои правила"
 MENU_RETRAIN_STYLE = "⚙️ Обучить стиль"
+MENU_HELP = "❓ Помощь"
 
 
 def build_main_menu() -> ReplyKeyboardMarkup:
@@ -57,7 +58,7 @@ def build_main_menu() -> ReplyKeyboardMarkup:
         keyboard=[
             [KeyboardButton(text=MENU_CREATE_CONTENT), KeyboardButton(text=MENU_SHOW_REPORT)],
             [KeyboardButton(text=MENU_ASK_MARKET), KeyboardButton(text=MENU_MY_RULES)],
-            [KeyboardButton(text=MENU_RETRAIN_STYLE)],
+            [KeyboardButton(text=MENU_RETRAIN_STYLE), KeyboardButton(text=MENU_HELP)],
         ],
         resize_keyboard=True,
         is_persistent=True,

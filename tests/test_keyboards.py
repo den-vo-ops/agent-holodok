@@ -57,6 +57,7 @@ def test_build_main_menu_layout_and_flags():
         MENU_ASK_MARKET,
         MENU_MY_RULES,
         MENU_RETRAIN_STYLE,
+        MENU_HELP,
     )
 
     menu = build_main_menu()
@@ -65,7 +66,16 @@ def test_build_main_menu_layout_and_flags():
     assert texts == [
         [MENU_CREATE_CONTENT, MENU_SHOW_REPORT],
         [MENU_ASK_MARKET, MENU_MY_RULES],
-        [MENU_RETRAIN_STYLE],
+        [MENU_RETRAIN_STYLE, MENU_HELP],
     ]
     assert menu.resize_keyboard is True
     assert menu.is_persistent is True
+
+
+def test_main_menu_contains_help_button():
+    from holodok_agent.bot.keyboards import build_main_menu, MENU_HELP
+
+    markup = build_main_menu()
+    labels = [btn.text for row in markup.keyboard for btn in row]
+    assert MENU_HELP in labels
+    assert MENU_HELP == "❓ Помощь"
