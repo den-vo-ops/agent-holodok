@@ -5,7 +5,7 @@ import logging
 from aiogram import Bot, Dispatcher
 from aiogram.client.default import DefaultBotProperties
 from aiogram.enums import ParseMode
-from aiogram.types import ErrorEvent
+from aiogram.types import BotCommand, ErrorEvent
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
 
 from holodok_agent.bot.handlers import build_router
@@ -16,6 +16,14 @@ from holodok_agent.llm.client import GroqClient
 from holodok_agent.llm.errors import FALLBACK_MESSAGE
 
 logger = logging.getLogger(__name__)
+
+
+def build_bot_commands() -> list[BotCommand]:
+    return [
+        BotCommand(command="start", description="Запустить бота / открыть меню"),
+        BotCommand(command="settov", description="Загрузить свой стиль (тон-оф-войс)"),
+        BotCommand(command="help", description="Как пользоваться ботом"),
+    ]
 
 
 async def handle_global_error(event: ErrorEvent, bot: Bot, owner_id: int) -> None:
@@ -47,6 +55,8 @@ async def run() -> None:
     dp["owner_id"] = config.owner_id
     dp.include_router(build_router(config.owner_id))
     dp.errors.register(handle_global_error)
+
+    await bot.set_my_commands(build_bot_commands())
 
     scheduler = AsyncIOScheduler()
     schedule_monthly_metrics_prompt(scheduler, bot, config.owner_id, dp.storage)
