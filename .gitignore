@@ -1,6 +1,35 @@
+# === СЕКРЕТЫ — никогда не коммитить! ===
+.env
+.env.*
+!.env.example
+
+# === Виртуальное окружение Python ===
 .venv/
+venv/
+env/
+
+# === Кэш и артефакты Python ===
 __pycache__/
 *.pyc
-.env
+*.pyo
+*.egg-info/
+.pytest_cache/
+.mypy_cache/
+
+# === Локальная база данных бота (данные, не код) ===
+*.db
+*.sqlite
+*.sqlite3
 holodok_agent.db
+
+# === Логи ===
+*.log
+
+# === Служебные файлы редакторов и ОС ===
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+
+# === Транзиентные файлы инструментов ===
 .claude/scheduled_tasks.lock

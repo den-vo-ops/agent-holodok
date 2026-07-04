@@ -24,3 +24,12 @@ Task 1B-2: complete (commit 47d1f49, client error-wrap, +1 test)
 Task 1B-3: complete (commit 105ca35, handlers catch LLMError, +2 tests)
 Task 1B-4: complete (commit 68c6166, global aiogram error handler) [live wrong-key smoke pending]
 => Phase 1B complete: 60 passed. Behavioral check green (mapping + hidden technical text + global handler).
+
+## Plan: 2026-07-04-reply-menu (branch groq-migration, base 9bbdaeb)
+(pending)
+Task 1: complete (commit 6ff4738, keyboards build_main_menu +5 label consts, +1 test, review clean)
+Task 2: complete (commit 2700726, handlers menu wiring + main-menu after /start, +5 tests, 67 passed, review clean)
+Minor (defer to final review): shallow assert in test_handle_menu_create_content (only checks reply_markup present) — inherited from brief.
+Open item: doc updates (CLAUDE.md §2, Plan.md, spec.md §6) pending.
+FINAL REVIEW: 1 Important (stale FSM state on menu-button interrupt) → fixed commit 5c5c02c (state.clear in 3 handlers, tests updated, 67 passed). 1 Minor (shallow assert) accepted.
+Feature COMPLETE: commits 6ff4738, 2700726, 5c5c02c. All green.
