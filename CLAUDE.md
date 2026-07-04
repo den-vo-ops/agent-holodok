@@ -33,10 +33,11 @@ agent-holodok/
 │   │   └── content.py                 # генерация контента по сценариям
 │   └── bot/
 │       ├── auth.py                    # whitelist по Telegram ID
-│       ├── keyboards.py               # инлайн-кнопки и парсинг callback_data
-│       ├── handlers.py                # FSM: онбординг, сценарии, публикация (+ перехват LLMError)
+│       ├── keyboards.py               # reply/инлайн-кнопки (вкл. «❓ Помощь») и парсинг callback_data
+│       ├── messages.py                # тексты онбординга и справки (чистые константы)
+│       ├── handlers.py                # FSM: онбординг (гейт по onboarded_users), /settov, /help, сценарии, публикация (+ перехват LLMError)
 │       ├── scheduler.py               # ежемесячный опрос по метрикам
-│       └── main.py                    # точка входа бота (+ глобальный error-handler aiogram)
+│       └── main.py                    # точка входа бота (+ set_my_commands, глобальный error-handler aiogram)
 ├── tests/                             # зеркалит holodok_agent/, pytest + pytest-asyncio
 ├── deploy/holodok-agent.service       # systemd unit для VPS
 ├── README.md                          # инструкции локального запуска и деплоя
