@@ -210,9 +210,12 @@ async def test_handle_publish_marks_draft_and_clears_keyboard(monkeypatch):
 async def test_handle_menu_create_content_sends_scenario_menu():
     message = MagicMock()
     message.answer = AsyncMock()
+    state = MagicMock()
+    state.clear = AsyncMock()
 
-    await handle_menu_create_content(message)
+    await handle_menu_create_content(message, state)
 
+    state.clear.assert_awaited_once()
     message.answer.assert_awaited_once()
     _, kwargs = message.answer.call_args
     assert "reply_markup" in kwargs
@@ -221,6 +224,8 @@ async def test_handle_menu_create_content_sends_scenario_menu():
 async def test_handle_menu_my_rules_lists_saved_rules(monkeypatch):
     message = MagicMock()
     message.answer = AsyncMock()
+    state = MagicMock()
+    state.clear = AsyncMock()
     conn = MagicMock()
 
     monkeypatch.setattr(
@@ -228,8 +233,9 @@ async def test_handle_menu_my_rules_lists_saved_rules(monkeypatch):
         lambda c: ["не демпинговать", "скидка не больше 10%"],
     )
 
-    await handle_menu_my_rules(message, conn)
+    await handle_menu_my_rules(message, state, conn)
 
+    state.clear.assert_awaited_once()
     message.answer.assert_awaited_once()
     text = message.answer.call_args.args[0]
     assert "не демпинговать" in text
@@ -239,12 +245,15 @@ async def test_handle_menu_my_rules_lists_saved_rules(monkeypatch):
 async def test_handle_menu_my_rules_prompts_when_empty(monkeypatch):
     message = MagicMock()
     message.answer = AsyncMock()
+    state = MagicMock()
+    state.clear = AsyncMock()
     conn = MagicMock()
 
     monkeypatch.setattr("holodok_agent.bot.handlers.db.get_hard_rules", lambda c: [])
 
-    await handle_menu_my_rules(message, conn)
+    await handle_menu_my_rules(message, state, conn)
 
+    state.clear.assert_awaited_once()
     message.answer.assert_awaited_once_with(NO_RULES_MESSAGE)
 
 
@@ -265,7 +274,10 @@ async def test_handle_menu_retrain_style_restarts_onboarding():
 async def test_handle_menu_stub_replies_with_stub_message():
     message = MagicMock()
     message.answer = AsyncMock()
+    state = MagicMock()
+    state.clear = AsyncMock()
 
-    await handle_menu_stub(message)
+    await handle_menu_stub(message, state)
 
+    state.clear.assert_awaited_once()
     message.answer.assert_awaited_once_with(STUB_MESSAGE)

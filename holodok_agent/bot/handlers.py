@@ -114,11 +114,13 @@ async def handle_remember_rule(message: Message, conn) -> None:
     await message.answer(f"Запомнил: {rule}")
 
 
-async def handle_menu_create_content(message: Message) -> None:
+async def handle_menu_create_content(message: Message, state: FSMContext) -> None:
+    await state.clear()
     await message.answer(SCENARIO_MENU_PROMPT, reply_markup=build_scenario_menu())
 
 
-async def handle_menu_my_rules(message: Message, conn) -> None:
+async def handle_menu_my_rules(message: Message, state: FSMContext, conn) -> None:
+    await state.clear()
     rules = db.get_hard_rules(conn)
     if not rules:
         await message.answer(NO_RULES_MESSAGE)
@@ -135,7 +137,8 @@ async def handle_menu_retrain_style(message: Message, state: FSMContext) -> None
     await message.answer(ONBOARDING_PROMPT)
 
 
-async def handle_menu_stub(message: Message) -> None:
+async def handle_menu_stub(message: Message, state: FSMContext) -> None:
+    await state.clear()
     await message.answer(STUB_MESSAGE)
 
 
