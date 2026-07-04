@@ -10,6 +10,12 @@ from holodok_agent.bot.handlers import (
     handle_remember_rule,
     handle_publish,
     _generate_and_send,
+    handle_menu_create_content,
+    handle_menu_my_rules,
+    handle_menu_retrain_style,
+    handle_menu_stub,
+    STUB_MESSAGE,
+    NO_RULES_MESSAGE,
 )
 from holodok_agent.llm.errors import LLMError
 
@@ -199,3 +205,67 @@ async def test_handle_publish_marks_draft_and_clears_keyboard(monkeypatch):
     assert marked["id"] == 7
     callback.message.edit_reply_markup.assert_awaited_once_with(reply_markup=None)
     callback.answer.assert_awaited_once()
+
+
+async def test_handle_menu_create_content_sends_scenario_menu():
+    message = MagicMock()
+    message.answer = AsyncMock()
+
+    await handle_menu_create_content(message)
+
+    message.answer.assert_awaited_once()
+    _, kwargs = message.answer.call_args
+    assert "reply_markup" in kwargs
+
+
+async def test_handle_menu_my_rules_lists_saved_rules(monkeypatch):
+    message = MagicMock()
+    message.answer = AsyncMock()
+    conn = MagicMock()
+
+    monkeypatch.setattr(
+        "holodok_agent.bot.handlers.db.get_hard_rules",
+        lambda c: ["не демпинговать", "скидка не больше 10%"],
+    )
+
+    await handle_menu_my_rules(message, conn)
+
+    message.answer.assert_awaited_once()
+    text = message.answer.call_args.args[0]
+    assert "не демпинговать" in text
+    assert "скидка не больше 10%" in text
+
+
+async def test_handle_menu_my_rules_prompts_when_empty(monkeypatch):
+    message = MagicMock()
+    message.answer = AsyncMock()
+    conn = MagicMock()
+
+    monkeypatch.setattr("holodok_agent.bot.handlers.db.get_hard_rules", lambda c: [])
+
+    await handle_menu_my_rules(message, conn)
+
+    message.answer.assert_awaited_once_with(NO_RULES_MESSAGE)
+
+
+async def test_handle_menu_retrain_style_restarts_onboarding():
+    message = MagicMock()
+    message.answer = AsyncMock()
+    state = MagicMock()
+    state.set_state = AsyncMock()
+    state.update_data = AsyncMock()
+
+    await handle_menu_retrain_style(message, state)
+
+    state.set_state.assert_awaited_once_with(Onboarding.waiting_for_samples)
+    state.update_data.assert_awaited_once_with(samples=[])
+    message.answer.assert_awaited_once()
+
+
+async def test_handle_menu_stub_replies_with_stub_message():
+    message = MagicMock()
+    message.answer = AsyncMock()
+
+    await handle_menu_stub(message)
+
+    message.answer.assert_awaited_once_with(STUB_MESSAGE)

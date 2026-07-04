@@ -10,10 +10,16 @@ from aiogram.types import CallbackQuery, Message
 from holodok_agent import db
 from holodok_agent.bot.auth import is_owner
 from holodok_agent.bot.keyboards import (
+    build_main_menu,
     build_regenerate_and_publish_keyboard,
     build_scenario_menu,
     parse_draft_callback,
     parse_scenario_callback,
+    MENU_CREATE_CONTENT,
+    MENU_SHOW_REPORT,
+    MENU_ASK_MARKET,
+    MENU_MY_RULES,
+    MENU_RETRAIN_STYLE,
 )
 from holodok_agent.llm.content import generate_content
 from holodok_agent.llm.errors import LLMError
@@ -25,6 +31,9 @@ ONBOARDING_PROMPT = (
     "старых объявлений или постов (по одному сообщению). Когда закончишь — напиши /done."
 )
 SCENARIO_MENU_PROMPT = "Выбери, что сделать:"
+MAIN_MENU_PROMPT = "Чем помочь? Выбери действие в меню снизу."
+NO_RULES_MESSAGE = "Пока нет сохранённых правил. Чтобы добавить, напиши: «запомни, <правило>»."
+STUB_MESSAGE = "Эта функция появится после подключения разведки и аналитики (Фаза 1C/1D)."
 SCENARIO_INPUT_PROMPTS = {
     "vk_post": "О чём пост? Опиши коротко (например: последний выполненный заказ).",
     "avito_ad": "Что указать в объявлении? Опиши услугу/цену/условия.",
@@ -62,7 +71,7 @@ async def handle_start(message: Message, state: FSMContext, conn) -> None:
         await state.update_data(samples=[])
         await message.answer(ONBOARDING_PROMPT)
         return
-    await message.answer(SCENARIO_MENU_PROMPT, reply_markup=build_scenario_menu())
+    await message.answer(MAIN_MENU_PROMPT, reply_markup=build_main_menu())
 
 
 async def handle_onboarding_sample(message: Message, state: FSMContext) -> None:
@@ -93,7 +102,7 @@ async def handle_onboarding_done(message: Message, state: FSMContext, conn, llm_
     )
     await state.clear()
     await message.answer("Стиль запомнил!")
-    await message.answer(SCENARIO_MENU_PROMPT, reply_markup=build_scenario_menu())
+    await message.answer(MAIN_MENU_PROMPT, reply_markup=build_main_menu())
 
 
 async def handle_remember_rule(message: Message, conn) -> None:
@@ -103,6 +112,31 @@ async def handle_remember_rule(message: Message, conn) -> None:
         return
     db.add_hard_rule(conn, rule)
     await message.answer(f"Запомнил: {rule}")
+
+
+async def handle_menu_create_content(message: Message) -> None:
+    await message.answer(SCENARIO_MENU_PROMPT, reply_markup=build_scenario_menu())
+
+
+async def handle_menu_my_rules(message: Message, conn) -> None:
+    rules = db.get_hard_rules(conn)
+    if not rules:
+        await message.answer(NO_RULES_MESSAGE)
+        return
+    listed = "\n".join(f"{i}. {rule}" for i, rule in enumerate(rules, 1))
+    await message.answer(
+        f"Твои правила:\n{listed}\n\nЧтобы добавить ещё — напиши: «запомни, <правило>»."
+    )
+
+
+async def handle_menu_retrain_style(message: Message, state: FSMContext) -> None:
+    await state.set_state(Onboarding.waiting_for_samples)
+    await state.update_data(samples=[])
+    await message.answer(ONBOARDING_PROMPT)
+
+
+async def handle_menu_stub(message: Message) -> None:
+    await message.answer(STUB_MESSAGE)
 
 
 async def handle_scenario_selected(callback: CallbackQuery, state: FSMContext, conn, llm_client) -> None:
@@ -168,6 +202,11 @@ def build_router(owner_id: int) -> Router:
     router = Router()
     router.message.filter(IsOwner(owner_id))
     router.callback_query.filter(IsOwner(owner_id))
+
+    router.message.register(handle_menu_create_content, F.text == MENU_CREATE_CONTENT)
+    router.message.register(handle_menu_my_rules, F.text == MENU_MY_RULES)
+    router.message.register(handle_menu_retrain_style, F.text == MENU_RETRAIN_STYLE)
+    router.message.register(handle_menu_stub, F.text.in_({MENU_SHOW_REPORT, MENU_ASK_MARKET}))
 
     router.message.register(handle_remember_rule, F.text.startswith("запомни") | F.text.startswith("Запомни"))
     router.message.register(handle_start, Command("start"))
