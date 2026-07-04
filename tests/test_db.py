@@ -8,6 +8,8 @@ from holodok_agent.db import (
     mark_draft_published,
     save_monthly_metrics,
     get_monthly_metrics,
+    has_onboarded,
+    mark_onboarded,
 )
 
 
@@ -76,3 +78,27 @@ def test_save_monthly_metrics_overwrites_same_month(tmp_path):
     save_monthly_metrics(conn, "2026-07", "исправленный ответ")
 
     assert get_monthly_metrics(conn, "2026-07") == "исправленный ответ"
+
+
+def test_has_onboarded_false_for_unknown_user(tmp_path):
+    conn = connect(str(tmp_path / "test.db"))
+    assert has_onboarded(conn, 111) is False
+
+
+def test_mark_onboarded_makes_user_known(tmp_path):
+    conn = connect(str(tmp_path / "test.db"))
+    mark_onboarded(conn, 111)
+    assert has_onboarded(conn, 111) is True
+
+
+def test_mark_onboarded_is_idempotent(tmp_path):
+    conn = connect(str(tmp_path / "test.db"))
+    mark_onboarded(conn, 111)
+    mark_onboarded(conn, 111)  # не должно падать
+    assert has_onboarded(conn, 111) is True
+
+
+def test_mark_onboarded_scoped_per_user(tmp_path):
+    conn = connect(str(tmp_path / "test.db"))
+    mark_onboarded(conn, 111)
+    assert has_onboarded(conn, 222) is False

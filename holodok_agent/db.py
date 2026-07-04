@@ -31,6 +31,11 @@ CREATE TABLE IF NOT EXISTS metrics_monthly (
     raw_answer TEXT NOT NULL,
     recorded_at TEXT NOT NULL
 );
+
+CREATE TABLE IF NOT EXISTS onboarded_users (
+    user_id INTEGER PRIMARY KEY,
+    first_seen_at TEXT NOT NULL
+);
 """
 
 
@@ -120,3 +125,18 @@ def save_monthly_metrics(conn, month: str, raw_answer: str) -> None:
 def get_monthly_metrics(conn, month: str) -> str | None:
     row = conn.execute("SELECT raw_answer FROM metrics_monthly WHERE month = ?", (month,)).fetchone()
     return row["raw_answer"] if row else None
+
+
+def has_onboarded(conn, user_id: int) -> bool:
+    row = conn.execute(
+        "SELECT 1 FROM onboarded_users WHERE user_id = ?", (user_id,)
+    ).fetchone()
+    return row is not None
+
+
+def mark_onboarded(conn, user_id: int) -> None:
+    conn.execute(
+        "INSERT OR IGNORE INTO onboarded_users (user_id, first_seen_at) VALUES (?, ?)",
+        (user_id, _now()),
+    )
+    conn.commit()

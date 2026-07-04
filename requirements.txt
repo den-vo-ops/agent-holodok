@@ -1,5 +1,5 @@
 aiogram>=3.4,<4
-anthropic>=0.34,<1
+groq>=0.11,<1
 apscheduler>=3.10,<4
 python-dotenv>=1.0,<2
 pytest>=8.0,<9

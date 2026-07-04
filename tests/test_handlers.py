@@ -10,43 +10,67 @@ from holodok_agent.bot.handlers import (
     handle_remember_rule,
     handle_publish,
     _generate_and_send,
+    handle_menu_create_content,
+    handle_menu_my_rules,
+    handle_settov,
+    handle_help,
+    handle_menu_report_stub,
+    handle_menu_market_stub,
+    NO_RULES_MESSAGE,
+)
+from holodok_agent.bot.messages import (
+    ONBOARDING_MESSAGES,
+    HELP_MESSAGE,
+    REPORT_STUB_MESSAGE,
+    MARKET_STUB_MESSAGE,
 )
 from holodok_agent.llm.errors import LLMError
 
 
-async def test_handle_start_prompts_onboarding_when_no_style_profile(monkeypatch):
+async def test_handle_start_new_user_shows_onboarding_then_menu(monkeypatch):
     message = MagicMock()
+    message.from_user.id = 111
     message.answer = AsyncMock()
     state = MagicMock()
     state.set_state = AsyncMock()
-    state.update_data = AsyncMock()
     conn = MagicMock()
 
-    monkeypatch.setattr("holodok_agent.bot.handlers.db.get_style_profile", lambda c: None)
-
-    await handle_start(message, state, conn)
-
-    state.set_state.assert_awaited_once_with(Onboarding.waiting_for_samples)
-    message.answer.assert_awaited_once()
-
-
-async def test_handle_start_shows_menu_when_style_profile_exists(monkeypatch):
-    message = MagicMock()
-    message.answer = AsyncMock()
-    state = MagicMock()
-    conn = MagicMock()
-
+    monkeypatch.setattr("holodok_agent.bot.handlers.db.has_onboarded", lambda c, uid: False)
+    marked = {}
     monkeypatch.setattr(
-        "holodok_agent.bot.handlers.db.get_style_profile",
-        lambda c: {"tone_summary": "t", "lexicon_notes": "l", "structure_notes": "s"},
+        "holodok_agent.bot.handlers.db.mark_onboarded",
+        lambda c, uid: marked.setdefault("uid", uid),
     )
 
     await handle_start(message, state, conn)
 
+    # 3 сообщения онбординга + итоговое меню
+    assert message.answer.await_count == len(ONBOARDING_MESSAGES) + 1
+    sent = [call.args[0] for call in message.answer.call_args_list]
+    assert sent[:3] == ONBOARDING_MESSAGES
+    # последнее сообщение — с клавиатурой меню
+    assert "reply_markup" in message.answer.call_args_list[-1].kwargs
+    # пользователь помечен как онбордившийся, в загрузку образцов НЕ входим
+    assert marked["uid"] == 111
     state.set_state.assert_not_called()
+
+
+async def test_handle_start_known_user_shows_menu_only(monkeypatch):
+    message = MagicMock()
+    message.from_user.id = 111
+    message.answer = AsyncMock()
+    state = MagicMock()
+    state.set_state = AsyncMock()
+    conn = MagicMock()
+
+    monkeypatch.setattr("holodok_agent.bot.handlers.db.has_onboarded", lambda c, uid: True)
+    monkeypatch.setattr("holodok_agent.bot.handlers.db.mark_onboarded", lambda c, uid: None)
+
+    await handle_start(message, state, conn)
+
     message.answer.assert_awaited_once()
-    _, kwargs = message.answer.call_args
-    assert "reply_markup" in kwargs
+    assert "reply_markup" in message.answer.call_args.kwargs
+    state.set_state.assert_not_called()
 
 
 async def test_handle_onboarding_sample_appends_to_state():
@@ -68,9 +92,9 @@ async def test_handle_onboarding_done_rejects_when_no_samples():
     state = MagicMock()
     state.get_data = AsyncMock(return_value={"samples": []})
     conn = MagicMock()
-    claude_client = MagicMock()
+    llm_client = MagicMock()
 
-    await handle_onboarding_done(message, state, conn, claude_client)
+    await handle_onboarding_done(message, state, conn, llm_client)
 
     message.answer.assert_awaited_once_with("Пришли хотя бы один текст перед /done.")
 
@@ -82,7 +106,7 @@ async def test_handle_onboarding_done_saves_profile_and_clears_state(monkeypatch
     state.get_data = AsyncMock(return_value={"samples": ["текст 1"]})
     state.clear = AsyncMock()
     conn = MagicMock()
-    claude_client = MagicMock()
+    llm_client = MagicMock()
 
     monkeypatch.setattr(
         "holodok_agent.bot.handlers.analyze_style",
@@ -94,7 +118,7 @@ async def test_handle_onboarding_done_saves_profile_and_clears_state(monkeypatch
         lambda c, tone, lex, struct, samples: saved.update(tone=tone, samples=samples),
     )
 
-    await handle_onboarding_done(message, state, conn, claude_client)
+    await handle_onboarding_done(message, state, conn, llm_client)
 
     state.clear.assert_awaited_once()
     assert saved == {"tone": "t", "samples": ["текст 1"]}
@@ -108,7 +132,7 @@ async def test_handle_onboarding_done_shows_user_message_on_llm_error_and_keeps_
     state.get_data = AsyncMock(return_value={"samples": ["текст 1"]})
     state.clear = AsyncMock()
     conn = MagicMock()
-    claude_client = MagicMock()
+    llm_client = MagicMock()
 
     def _raise(client, samples):
         raise LLMError("boom", user_message="ИИ временно недоступен. Попробуйте ещё раз чуть позже.")
@@ -117,7 +141,7 @@ async def test_handle_onboarding_done_shows_user_message_on_llm_error_and_keeps_
     save_called = MagicMock()
     monkeypatch.setattr("holodok_agent.bot.handlers.db.save_style_profile", save_called)
 
-    await handle_onboarding_done(message, state, conn, claude_client)
+    await handle_onboarding_done(message, state, conn, llm_client)
 
     message.answer.assert_awaited_once_with("ИИ временно недоступен. Попробуйте ещё раз чуть позже.")
     state.clear.assert_not_called()
@@ -128,7 +152,7 @@ async def test_generate_and_send_shows_user_message_on_llm_error_and_skips_draft
     message = MagicMock()
     message.answer = AsyncMock()
     conn = MagicMock()
-    claude_client = MagicMock()
+    llm_client = MagicMock()
 
     monkeypatch.setattr(
         "holodok_agent.bot.handlers.db.get_style_profile",
@@ -143,7 +167,7 @@ async def test_generate_and_send_shows_user_message_on_llm_error_and_skips_draft
     record_draft_called = MagicMock()
     monkeypatch.setattr("holodok_agent.bot.handlers.db.record_draft", record_draft_called)
 
-    await _generate_and_send(message, conn, claude_client, "vk_post", "входные данные")
+    await _generate_and_send(message, conn, llm_client, "vk_post", "входные данные")
 
     message.answer.assert_awaited_once_with(
         "Слишком много запросов к ИИ подряд. Подождите минуту и попробуйте снова."
@@ -199,3 +223,103 @@ async def test_handle_publish_marks_draft_and_clears_keyboard(monkeypatch):
     assert marked["id"] == 7
     callback.message.edit_reply_markup.assert_awaited_once_with(reply_markup=None)
     callback.answer.assert_awaited_once()
+
+
+async def test_handle_menu_create_content_sends_scenario_menu():
+    message = MagicMock()
+    message.answer = AsyncMock()
+    state = MagicMock()
+    state.clear = AsyncMock()
+
+    await handle_menu_create_content(message, state)
+
+    state.clear.assert_awaited_once()
+    message.answer.assert_awaited_once()
+    _, kwargs = message.answer.call_args
+    assert "reply_markup" in kwargs
+
+
+async def test_handle_menu_my_rules_lists_saved_rules(monkeypatch):
+    message = MagicMock()
+    message.answer = AsyncMock()
+    state = MagicMock()
+    state.clear = AsyncMock()
+    conn = MagicMock()
+
+    monkeypatch.setattr(
+        "holodok_agent.bot.handlers.db.get_hard_rules",
+        lambda c: ["не демпинговать", "скидка не больше 10%"],
+    )
+
+    await handle_menu_my_rules(message, state, conn)
+
+    state.clear.assert_awaited_once()
+    message.answer.assert_awaited_once()
+    text = message.answer.call_args.args[0]
+    assert "не демпинговать" in text
+    assert "скидка не больше 10%" in text
+
+
+async def test_handle_menu_my_rules_prompts_when_empty(monkeypatch):
+    message = MagicMock()
+    message.answer = AsyncMock()
+    state = MagicMock()
+    state.clear = AsyncMock()
+    conn = MagicMock()
+
+    monkeypatch.setattr("holodok_agent.bot.handlers.db.get_hard_rules", lambda c: [])
+
+    await handle_menu_my_rules(message, state, conn)
+
+    state.clear.assert_awaited_once()
+    message.answer.assert_awaited_once_with(NO_RULES_MESSAGE)
+
+
+async def test_handle_settov_starts_style_upload():
+    message = MagicMock()
+    message.answer = AsyncMock()
+    state = MagicMock()
+    state.set_state = AsyncMock()
+    state.update_data = AsyncMock()
+
+    await handle_settov(message, state)
+
+    state.set_state.assert_awaited_once_with(Onboarding.waiting_for_samples)
+    state.update_data.assert_awaited_once_with(samples=[])
+    message.answer.assert_awaited_once()
+
+
+async def test_handle_menu_report_stub_explains_feature():
+    message = MagicMock()
+    message.answer = AsyncMock()
+    state = MagicMock()
+    state.clear = AsyncMock()
+
+    await handle_menu_report_stub(message, state)
+
+    state.clear.assert_awaited_once()
+    message.answer.assert_awaited_once_with(REPORT_STUB_MESSAGE)
+
+
+async def test_handle_menu_market_stub_explains_feature():
+    message = MagicMock()
+    message.answer = AsyncMock()
+    state = MagicMock()
+    state.clear = AsyncMock()
+
+    await handle_menu_market_stub(message, state)
+
+    state.clear.assert_awaited_once()
+    message.answer.assert_awaited_once_with(MARKET_STUB_MESSAGE)
+
+
+async def test_handle_help_shows_help_and_clears_state():
+    message = MagicMock()
+    message.answer = AsyncMock()
+    state = MagicMock()
+    state.clear = AsyncMock()
+
+    await handle_help(message, state)
+
+    state.clear.assert_awaited_once()
+    message.answer.assert_awaited_once_with(HELP_MESSAGE)

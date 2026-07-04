@@ -8,7 +8,7 @@
 python -m venv .venv
 source .venv/bin/activate
 pip install -r requirements.txt
-cp .env.example .env  # заполнить TELEGRAM_BOT_TOKEN, OWNER_TELEGRAM_ID, ANTHROPIC_API_KEY
+cp .env.example .env  # заполнить BOT_TOKEN, ADMIN_IDS, GROQ_API_KEY
 python -m pytest
 python -m holodok_agent.bot.main
 ```

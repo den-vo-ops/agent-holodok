@@ -1,5 +1,5 @@
 # holodok_agent/llm/style.py
-from holodok_agent.llm.client import ClaudeClient
+from holodok_agent.llm.client import GroqClient
 
 STYLE_ANALYSIS_SYSTEM_PROMPT = (
     "Ты — лингвист-аналитик. Тебе дают несколько текстов объявлений/постов одного автора. "
@@ -15,7 +15,7 @@ _MARKERS = {
 }
 
 
-def analyze_style(client: ClaudeClient, samples: list[str]) -> dict:
+def analyze_style(client: GroqClient, samples: list[str]) -> dict:
     if not samples:
         raise ValueError("Нужен хотя бы один образец текста для анализа стиля")
     joined = "\n\n---\n\n".join(samples)

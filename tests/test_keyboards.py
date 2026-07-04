@@ -47,3 +47,35 @@ def test_parse_draft_callback_rejects_bad_id():
 def test_parse_draft_callback_rejects_unknown_action():
     with pytest.raises(ValueError):
         parse_draft_callback("delete:1")
+
+
+def test_build_main_menu_layout_and_flags():
+    from holodok_agent.bot.keyboards import (
+        build_main_menu,
+        MENU_CREATE_CONTENT,
+        MENU_SHOW_REPORT,
+        MENU_ASK_MARKET,
+        MENU_MY_RULES,
+        MENU_RETRAIN_STYLE,
+        MENU_HELP,
+    )
+
+    menu = build_main_menu()
+    texts = [[btn.text for btn in row] for row in menu.keyboard]
+
+    assert texts == [
+        [MENU_CREATE_CONTENT, MENU_SHOW_REPORT],
+        [MENU_ASK_MARKET, MENU_MY_RULES],
+        [MENU_RETRAIN_STYLE, MENU_HELP],
+    ]
+    assert menu.resize_keyboard is True
+    assert menu.is_persistent is True
+
+
+def test_main_menu_contains_help_button():
+    from holodok_agent.bot.keyboards import build_main_menu, MENU_HELP
+
+    markup = build_main_menu()
+    labels = [btn.text for row in markup.keyboard for btn in row]
+    assert MENU_HELP in labels
+    assert MENU_HELP == "❓ Помощь"

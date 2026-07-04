@@ -10,10 +10,23 @@ from aiogram.types import CallbackQuery, Message
 from holodok_agent import db
 from holodok_agent.bot.auth import is_owner
 from holodok_agent.bot.keyboards import (
+    build_main_menu,
     build_regenerate_and_publish_keyboard,
     build_scenario_menu,
     parse_draft_callback,
     parse_scenario_callback,
+    MENU_CREATE_CONTENT,
+    MENU_SHOW_REPORT,
+    MENU_ASK_MARKET,
+    MENU_MY_RULES,
+    MENU_RETRAIN_STYLE,
+    MENU_HELP,
+)
+from holodok_agent.bot.messages import (
+    ONBOARDING_MESSAGES,
+    HELP_MESSAGE,
+    REPORT_STUB_MESSAGE,
+    MARKET_STUB_MESSAGE,
 )
 from holodok_agent.llm.content import generate_content
 from holodok_agent.llm.errors import LLMError
@@ -24,7 +37,9 @@ ONBOARDING_PROMPT = (
     "Привет! Я — твой личный агент. Чтобы писать в твоём стиле, пришли несколько "
     "старых объявлений или постов (по одному сообщению). Когда закончишь — напиши /done."
 )
-SCENARIO_MENU_PROMPT = "Выбери, что сделать:"
+SCENARIO_MENU_PROMPT = "✍️ Соберу черновик в твоём стиле. Выбери формат:"
+MAIN_MENU_PROMPT = "Чем помочь? Выбери действие в меню снизу."
+NO_RULES_MESSAGE = "Пока нет сохранённых правил. Чтобы добавить, напиши: «запомни, <правило>»."
 SCENARIO_INPUT_PROMPTS = {
     "vk_post": "О чём пост? Опиши коротко (например: последний выполненный заказ).",
     "avito_ad": "Что указать в объявлении? Опиши услугу/цену/условия.",
@@ -56,13 +71,11 @@ class IsOwner(BaseFilter):
 
 
 async def handle_start(message: Message, state: FSMContext, conn) -> None:
-    profile = db.get_style_profile(conn)
-    if profile is None:
-        await state.set_state(Onboarding.waiting_for_samples)
-        await state.update_data(samples=[])
-        await message.answer(ONBOARDING_PROMPT)
-        return
-    await message.answer(SCENARIO_MENU_PROMPT, reply_markup=build_scenario_menu())
+    if not db.has_onboarded(conn, message.from_user.id):
+        for text in ONBOARDING_MESSAGES:
+            await message.answer(text)
+        db.mark_onboarded(conn, message.from_user.id)
+    await message.answer(MAIN_MENU_PROMPT, reply_markup=build_main_menu())
 
 
 async def handle_onboarding_sample(message: Message, state: FSMContext) -> None:
@@ -73,14 +86,14 @@ async def handle_onboarding_sample(message: Message, state: FSMContext) -> None:
     await message.answer(f"Принял. Уже {len(samples)} текст(ов). Пришли ещё или напиши /done.")
 
 
-async def handle_onboarding_done(message: Message, state: FSMContext, conn, claude_client) -> None:
+async def handle_onboarding_done(message: Message, state: FSMContext, conn, llm_client) -> None:
     data = await state.get_data()
     samples = data.get("samples", [])
     if not samples:
         await message.answer("Пришли хотя бы один текст перед /done.")
         return
     try:
-        profile = analyze_style(claude_client, samples)
+        profile = analyze_style(llm_client, samples)
     except LLMError as exc:
         await message.answer(exc.user_message)
         return
@@ -93,7 +106,7 @@ async def handle_onboarding_done(message: Message, state: FSMContext, conn, clau
     )
     await state.clear()
     await message.answer("Стиль запомнил!")
-    await message.answer(SCENARIO_MENU_PROMPT, reply_markup=build_scenario_menu())
+    await message.answer(MAIN_MENU_PROMPT, reply_markup=build_main_menu())
 
 
 async def handle_remember_rule(message: Message, conn) -> None:
@@ -105,10 +118,49 @@ async def handle_remember_rule(message: Message, conn) -> None:
     await message.answer(f"Запомнил: {rule}")
 
 
-async def handle_scenario_selected(callback: CallbackQuery, state: FSMContext, conn, claude_client) -> None:
+async def handle_menu_create_content(message: Message, state: FSMContext) -> None:
+    await state.clear()
+    await message.answer(SCENARIO_MENU_PROMPT, reply_markup=build_scenario_menu())
+
+
+async def handle_menu_my_rules(message: Message, state: FSMContext, conn) -> None:
+    await state.clear()
+    rules = db.get_hard_rules(conn)
+    if not rules:
+        await message.answer(NO_RULES_MESSAGE)
+        return
+    listed = "\n".join(f"{i}. {rule}" for i, rule in enumerate(rules, 1))
+    await message.answer(
+        "📝 Это правила, которые я всегда держу в голове при генерации.\n\n"
+        f"Твои правила:\n{listed}\n\nЧтобы добавить ещё — напиши: «запомни, <правило>»."
+    )
+
+
+async def handle_settov(message: Message, state: FSMContext) -> None:
+    await state.set_state(Onboarding.waiting_for_samples)
+    await state.update_data(samples=[])
+    await message.answer(ONBOARDING_PROMPT)
+
+
+async def handle_help(message: Message, state: FSMContext) -> None:
+    await state.clear()
+    await message.answer(HELP_MESSAGE)
+
+
+async def handle_menu_report_stub(message: Message, state: FSMContext) -> None:
+    await state.clear()
+    await message.answer(REPORT_STUB_MESSAGE)
+
+
+async def handle_menu_market_stub(message: Message, state: FSMContext) -> None:
+    await state.clear()
+    await message.answer(MARKET_STUB_MESSAGE)
+
+
+async def handle_scenario_selected(callback: CallbackQuery, state: FSMContext, conn, llm_client) -> None:
     scenario = parse_scenario_callback(callback.data)
     if scenario == "idea":
-        await _generate_and_send(callback.message, conn, claude_client, scenario, user_input="")
+        await _generate_and_send(callback.message, conn, llm_client, scenario, user_input="")
         await callback.answer()
         return
     await state.set_state(ScenarioFlow.waiting_for_input)
@@ -117,21 +169,21 @@ async def handle_scenario_selected(callback: CallbackQuery, state: FSMContext, c
     await callback.answer()
 
 
-async def handle_scenario_input(message: Message, state: FSMContext, conn, claude_client) -> None:
+async def handle_scenario_input(message: Message, state: FSMContext, conn, llm_client) -> None:
     data = await state.get_data()
     scenario = data["scenario"]
     await state.clear()
-    await _generate_and_send(message, conn, claude_client, scenario, message.text)
+    await _generate_and_send(message, conn, llm_client, scenario, message.text)
 
 
-async def _generate_and_send(message: Message, conn, claude_client, scenario: str, user_input: str) -> None:
+async def _generate_and_send(message: Message, conn, llm_client, scenario: str, user_input: str) -> None:
     profile = db.get_style_profile(conn)
     if profile is None:
-        await message.answer("Сначала пройди обучение стилю: напиши /start.")
+        await message.answer("Сначала загрузи свой стиль — команда /settov (или кнопка «⚙️ Обучить стиль»).")
         return
     hard_rules = db.get_hard_rules(conn)
     try:
-        text = generate_content(claude_client, profile, hard_rules, scenario, user_input)
+        text = generate_content(llm_client, profile, hard_rules, scenario, user_input)
     except LLMError as exc:
         await message.answer(exc.user_message)
         return
@@ -140,13 +192,13 @@ async def _generate_and_send(message: Message, conn, claude_client, scenario: st
     await message.answer(text, reply_markup=build_regenerate_and_publish_keyboard(draft_id))
 
 
-async def handle_regenerate(callback: CallbackQuery, conn, claude_client) -> None:
+async def handle_regenerate(callback: CallbackQuery, conn, llm_client) -> None:
     _, draft_id = parse_draft_callback(callback.data)
     scenario, user_input = LAST_GENERATION.get(draft_id, (None, None))
     if scenario is None:
         await callback.answer("Не нашёл контекст для переделки, начни заново.", show_alert=True)
         return
-    await _generate_and_send(callback.message, conn, claude_client, scenario, user_input)
+    await _generate_and_send(callback.message, conn, llm_client, scenario, user_input)
     await callback.answer()
 
 
@@ -169,8 +221,17 @@ def build_router(owner_id: int) -> Router:
     router.message.filter(IsOwner(owner_id))
     router.callback_query.filter(IsOwner(owner_id))
 
+    router.message.register(handle_menu_create_content, F.text == MENU_CREATE_CONTENT)
+    router.message.register(handle_menu_my_rules, F.text == MENU_MY_RULES)
+    router.message.register(handle_settov, F.text == MENU_RETRAIN_STYLE)
+    router.message.register(handle_menu_report_stub, F.text == MENU_SHOW_REPORT)
+    router.message.register(handle_menu_market_stub, F.text == MENU_ASK_MARKET)
+    router.message.register(handle_help, F.text == MENU_HELP)
+
     router.message.register(handle_remember_rule, F.text.startswith("запомни") | F.text.startswith("Запомни"))
     router.message.register(handle_start, Command("start"))
+    router.message.register(handle_settov, Command("settov"))
+    router.message.register(handle_help, Command("help"))
     router.message.register(
         handle_onboarding_done, Command("done"), StateFilter(Onboarding.waiting_for_samples)
     )

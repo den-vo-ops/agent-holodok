@@ -1,68 +1,71 @@
 import logging
 from unittest.mock import MagicMock, patch
 
-import anthropic
+import groq
 import httpx
 import pytest
 
-from holodok_agent.llm.client import ClaudeClient
+from holodok_agent.llm.client import GroqClient
 from holodok_agent.llm.errors import LLMError
 
 
+def _mock_response(text: str) -> MagicMock:
+    message = MagicMock()
+    message.content = text
+    choice = MagicMock()
+    choice.message = message
+    response = MagicMock()
+    response.choices = [choice]
+    return response
+
+
 def test_complete_sends_correct_request_and_extracts_text():
-    with patch("holodok_agent.llm.client.Anthropic") as mock_anthropic_cls:
+    with patch("holodok_agent.llm.client.Groq") as mock_groq_cls:
         mock_sdk_client = MagicMock()
-        mock_anthropic_cls.return_value = mock_sdk_client
+        mock_groq_cls.return_value = mock_sdk_client
+        mock_sdk_client.chat.completions.create.return_value = _mock_response(
+            "Готовый текст ответа"
+        )
 
-        mock_block = MagicMock()
-        mock_block.type = "text"
-        mock_block.text = "Готовый текст ответа"
-        mock_response = MagicMock()
-        mock_response.content = [mock_block]
-        mock_sdk_client.messages.create.return_value = mock_response
-
-        client = ClaudeClient(api_key="test-key", model="claude-opus-4-8")
+        client = GroqClient(api_key="test-key", model="llama-3.3-70b-versatile")
         result = client.complete(system="системный промпт", user_message="пользовательский запрос")
 
         assert result == "Готовый текст ответа"
-        mock_anthropic_cls.assert_called_once_with(api_key="test-key")
-        mock_sdk_client.messages.create.assert_called_once_with(
-            model="claude-opus-4-8",
+        mock_groq_cls.assert_called_once_with(api_key="test-key")
+        mock_sdk_client.chat.completions.create.assert_called_once_with(
+            model="llama-3.3-70b-versatile",
             max_tokens=1024,
-            system="системный промпт",
-            messages=[{"role": "user", "content": "пользовательский запрос"}],
+            messages=[
+                {"role": "system", "content": "системный промпт"},
+                {"role": "user", "content": "пользовательский запрос"},
+            ],
         )
 
 
-def test_complete_joins_multiple_text_blocks():
-    with patch("holodok_agent.llm.client.Anthropic") as mock_anthropic_cls:
+def test_complete_returns_empty_string_when_content_is_none():
+    with patch("holodok_agent.llm.client.Groq") as mock_groq_cls:
         mock_sdk_client = MagicMock()
-        mock_anthropic_cls.return_value = mock_sdk_client
+        mock_groq_cls.return_value = mock_sdk_client
+        mock_sdk_client.chat.completions.create.return_value = _mock_response(None)
 
-        block_a = MagicMock(type="text", text="Часть 1. ")
-        block_b = MagicMock(type="text", text="Часть 2.")
-        mock_response = MagicMock()
-        mock_response.content = [block_a, block_b]
-        mock_sdk_client.messages.create.return_value = mock_response
-
-        client = ClaudeClient(api_key="k", model="claude-opus-4-8")
+        client = GroqClient(api_key="k", model="llama-3.3-70b-versatile")
         result = client.complete(system="s", user_message="u")
 
-        assert result == "Часть 1. Часть 2."
+        assert result == ""
 
 
 def test_complete_raises_llm_error_and_logs_traceback_on_rate_limit(caplog):
-    with patch("holodok_agent.llm.client.Anthropic") as mock_anthropic_cls:
+    with patch("holodok_agent.llm.client.Groq") as mock_groq_cls:
         mock_sdk_client = MagicMock()
-        mock_anthropic_cls.return_value = mock_sdk_client
+        mock_groq_cls.return_value = mock_sdk_client
 
-        request = httpx.Request("POST", "https://api.anthropic.com/v1/messages")
+        request = httpx.Request("POST", "https://api.groq.com/openai/v1/chat/completions")
         response = httpx.Response(status_code=429, request=request)
-        mock_sdk_client.messages.create.side_effect = anthropic.RateLimitError(
+        mock_sdk_client.chat.completions.create.side_effect = groq.RateLimitError(
             "rate limited", response=response, body=None
         )
 
-        client = ClaudeClient(api_key="k", model="claude-opus-4-8")
+        client = GroqClient(api_key="k", model="llama-3.3-70b-versatile")
 
         with caplog.at_level(logging.ERROR):
             with pytest.raises(LLMError) as exc_info:

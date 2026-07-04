@@ -1,11 +1,11 @@
 # tests/test_errors.py
-import anthropic
+import groq
 import httpx
 import pytest
 
 from holodok_agent.llm.errors import LLMError, to_llm_error
 
-REQUEST = httpx.Request("POST", "https://api.anthropic.com/v1/messages")
+REQUEST = httpx.Request("POST", "https://api.groq.com/openai/v1/chat/completions")
 
 
 def _response(status_code: int) -> httpx.Response:
@@ -13,7 +13,7 @@ def _response(status_code: int) -> httpx.Response:
 
 
 def test_rate_limit_error_maps_to_russian_text():
-    exc = anthropic.RateLimitError("rate limited", response=_response(429), body=None)
+    exc = groq.RateLimitError("rate limited", response=_response(429), body=None)
 
     result = to_llm_error(exc)
 
@@ -24,7 +24,7 @@ def test_rate_limit_error_maps_to_russian_text():
 
 
 def test_api_timeout_error_maps_to_russian_text():
-    exc = anthropic.APITimeoutError(request=REQUEST)
+    exc = groq.APITimeoutError(request=REQUEST)
 
     result = to_llm_error(exc)
 
@@ -34,7 +34,7 @@ def test_api_timeout_error_maps_to_russian_text():
 
 
 def test_api_connection_error_maps_to_russian_text():
-    exc = anthropic.APIConnectionError(message="connection broke", request=REQUEST)
+    exc = groq.APIConnectionError(message="connection broke", request=REQUEST)
 
     result = to_llm_error(exc)
 
@@ -44,7 +44,7 @@ def test_api_connection_error_maps_to_russian_text():
 
 
 def test_authentication_error_maps_to_russian_text():
-    exc = anthropic.AuthenticationError("bad key", response=_response(401), body=None)
+    exc = groq.AuthenticationError("bad key", response=_response(401), body=None)
 
     result = to_llm_error(exc)
 
@@ -55,7 +55,7 @@ def test_authentication_error_maps_to_russian_text():
 
 
 def test_bad_request_error_maps_to_russian_text():
-    exc = anthropic.BadRequestError("too long", response=_response(400), body=None)
+    exc = groq.BadRequestError("too long", response=_response(400), body=None)
 
     result = to_llm_error(exc)
 
@@ -65,7 +65,7 @@ def test_bad_request_error_maps_to_russian_text():
 
 
 def test_generic_api_status_error_maps_to_russian_text():
-    exc = anthropic.APIStatusError("server error", response=_response(500), body=None)
+    exc = groq.APIStatusError("server error", response=_response(500), body=None)
 
     result = to_llm_error(exc)
 
@@ -83,7 +83,7 @@ def test_unknown_exception_maps_to_fallback_russian_text():
 
 
 def test_llm_error_keeps_technical_detail_in_args():
-    exc = anthropic.RateLimitError("rate limited", response=_response(429), body=None)
+    exc = groq.RateLimitError("rate limited", response=_response(429), body=None)
 
     result = to_llm_error(exc)
 
