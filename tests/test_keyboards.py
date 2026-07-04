@@ -47,3 +47,25 @@ def test_parse_draft_callback_rejects_bad_id():
 def test_parse_draft_callback_rejects_unknown_action():
     with pytest.raises(ValueError):
         parse_draft_callback("delete:1")
+
+
+def test_build_main_menu_layout_and_flags():
+    from holodok_agent.bot.keyboards import (
+        build_main_menu,
+        MENU_CREATE_CONTENT,
+        MENU_SHOW_REPORT,
+        MENU_ASK_MARKET,
+        MENU_MY_RULES,
+        MENU_RETRAIN_STYLE,
+    )
+
+    menu = build_main_menu()
+    texts = [[btn.text for btn in row] for row in menu.keyboard]
+
+    assert texts == [
+        [MENU_CREATE_CONTENT, MENU_SHOW_REPORT],
+        [MENU_ASK_MARKET, MENU_MY_RULES],
+        [MENU_RETRAIN_STYLE],
+    ]
+    assert menu.resize_keyboard is True
+    assert menu.is_persistent is True

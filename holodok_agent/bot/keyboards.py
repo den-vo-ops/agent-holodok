@@ -1,5 +1,10 @@
 # holodok_agent/bot/keyboards.py
-from aiogram.types import InlineKeyboardButton, InlineKeyboardMarkup
+from aiogram.types import (
+    InlineKeyboardButton,
+    InlineKeyboardMarkup,
+    KeyboardButton,
+    ReplyKeyboardMarkup,
+)
 
 _SCENARIO_BUTTONS = [
     ("vk_post", "Пост для ВК/Telegram"),
@@ -38,3 +43,22 @@ def parse_draft_callback(data: str) -> tuple[str, int]:
     if action not in {"regen", "publish"} or not raw_id.isdigit():
         raise ValueError(f"Некорректный callback: {data}")
     return action, int(raw_id)
+
+
+MENU_CREATE_CONTENT = "✍️ Создать контент"
+MENU_SHOW_REPORT = "📊 Показать отчёт"
+MENU_ASK_MARKET = "🔍 Спросить о рынке"
+MENU_MY_RULES = "📝 Мои правила"
+MENU_RETRAIN_STYLE = "⚙️ Обучить стиль"
+
+
+def build_main_menu() -> ReplyKeyboardMarkup:
+    return ReplyKeyboardMarkup(
+        keyboard=[
+            [KeyboardButton(text=MENU_CREATE_CONTENT), KeyboardButton(text=MENU_SHOW_REPORT)],
+            [KeyboardButton(text=MENU_ASK_MARKET), KeyboardButton(text=MENU_MY_RULES)],
+            [KeyboardButton(text=MENU_RETRAIN_STYLE)],
+        ],
+        resize_keyboard=True,
+        is_persistent=True,
+    )
