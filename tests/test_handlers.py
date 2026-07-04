@@ -68,9 +68,9 @@ async def test_handle_onboarding_done_rejects_when_no_samples():
     state = MagicMock()
     state.get_data = AsyncMock(return_value={"samples": []})
     conn = MagicMock()
-    claude_client = MagicMock()
+    llm_client = MagicMock()
 
-    await handle_onboarding_done(message, state, conn, claude_client)
+    await handle_onboarding_done(message, state, conn, llm_client)
 
     message.answer.assert_awaited_once_with("Пришли хотя бы один текст перед /done.")
 
@@ -82,7 +82,7 @@ async def test_handle_onboarding_done_saves_profile_and_clears_state(monkeypatch
     state.get_data = AsyncMock(return_value={"samples": ["текст 1"]})
     state.clear = AsyncMock()
     conn = MagicMock()
-    claude_client = MagicMock()
+    llm_client = MagicMock()
 
     monkeypatch.setattr(
         "holodok_agent.bot.handlers.analyze_style",
@@ -94,7 +94,7 @@ async def test_handle_onboarding_done_saves_profile_and_clears_state(monkeypatch
         lambda c, tone, lex, struct, samples: saved.update(tone=tone, samples=samples),
     )
 
-    await handle_onboarding_done(message, state, conn, claude_client)
+    await handle_onboarding_done(message, state, conn, llm_client)
 
     state.clear.assert_awaited_once()
     assert saved == {"tone": "t", "samples": ["текст 1"]}
@@ -108,7 +108,7 @@ async def test_handle_onboarding_done_shows_user_message_on_llm_error_and_keeps_
     state.get_data = AsyncMock(return_value={"samples": ["текст 1"]})
     state.clear = AsyncMock()
     conn = MagicMock()
-    claude_client = MagicMock()
+    llm_client = MagicMock()
 
     def _raise(client, samples):
         raise LLMError("boom", user_message="ИИ временно недоступен. Попробуйте ещё раз чуть позже.")
@@ -117,7 +117,7 @@ async def test_handle_onboarding_done_shows_user_message_on_llm_error_and_keeps_
     save_called = MagicMock()
     monkeypatch.setattr("holodok_agent.bot.handlers.db.save_style_profile", save_called)
 
-    await handle_onboarding_done(message, state, conn, claude_client)
+    await handle_onboarding_done(message, state, conn, llm_client)
 
     message.answer.assert_awaited_once_with("ИИ временно недоступен. Попробуйте ещё раз чуть позже.")
     state.clear.assert_not_called()
@@ -128,7 +128,7 @@ async def test_generate_and_send_shows_user_message_on_llm_error_and_skips_draft
     message = MagicMock()
     message.answer = AsyncMock()
     conn = MagicMock()
-    claude_client = MagicMock()
+    llm_client = MagicMock()
 
     monkeypatch.setattr(
         "holodok_agent.bot.handlers.db.get_style_profile",
@@ -143,7 +143,7 @@ async def test_generate_and_send_shows_user_message_on_llm_error_and_skips_draft
     record_draft_called = MagicMock()
     monkeypatch.setattr("holodok_agent.bot.handlers.db.record_draft", record_draft_called)
 
-    await _generate_and_send(message, conn, claude_client, "vk_post", "входные данные")
+    await _generate_and_send(message, conn, llm_client, "vk_post", "входные данные")
 
     message.answer.assert_awaited_once_with(
         "Слишком много запросов к ИИ подряд. Подождите минуту и попробуйте снова."

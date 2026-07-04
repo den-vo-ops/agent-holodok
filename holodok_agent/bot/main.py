@@ -12,7 +12,7 @@ from holodok_agent.bot.handlers import build_router
 from holodok_agent.bot.scheduler import schedule_monthly_metrics_prompt
 from holodok_agent.config import load_config
 from holodok_agent.db import connect
-from holodok_agent.llm.client import ClaudeClient
+from holodok_agent.llm.client import GroqClient
 from holodok_agent.llm.errors import FALLBACK_MESSAGE
 
 logger = logging.getLogger(__name__)
@@ -38,18 +38,18 @@ async def run() -> None:
     logging.basicConfig(level=logging.INFO)
     config = load_config()
     conn = connect(config.db_path)
-    claude_client = ClaudeClient(api_key=config.anthropic_api_key, model=config.anthropic_model)
+    llm_client = GroqClient(api_key=config.groq_api_key, model=config.groq_model)
 
-    bot = Bot(token=config.telegram_bot_token, default=DefaultBotProperties(parse_mode=ParseMode.HTML))
+    bot = Bot(token=config.bot_token, default=DefaultBotProperties(parse_mode=ParseMode.HTML))
     dp = Dispatcher()
     dp["conn"] = conn
-    dp["claude_client"] = claude_client
-    dp["owner_id"] = config.owner_telegram_id
-    dp.include_router(build_router(config.owner_telegram_id))
+    dp["llm_client"] = llm_client
+    dp["owner_id"] = config.owner_id
+    dp.include_router(build_router(config.owner_id))
     dp.errors.register(handle_global_error)
 
     scheduler = AsyncIOScheduler()
-    schedule_monthly_metrics_prompt(scheduler, bot, config.owner_telegram_id, dp.storage)
+    schedule_monthly_metrics_prompt(scheduler, bot, config.owner_id, dp.storage)
     scheduler.start()
 
     await dp.start_polling(bot)

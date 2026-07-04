@@ -1,5 +1,5 @@
 # holodok_agent/llm/content.py
-from holodok_agent.llm.client import ClaudeClient
+from holodok_agent.llm.client import GroqClient
 
 SCENARIO_INSTRUCTIONS = {
     "vk_post": (
@@ -34,7 +34,7 @@ def build_system_prompt(style_profile: dict, hard_rules: list[str]) -> str:
 
 
 def generate_content(
-    client: ClaudeClient,
+    client: GroqClient,
     style_profile: dict,
     hard_rules: list[str],
     scenario: str,

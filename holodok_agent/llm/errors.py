@@ -1,6 +1,6 @@
 # holodok_agent/llm/errors.py
 """Domain error type for LLM failures, with ready-to-show Russian user messages."""
-import anthropic
+import groq
 
 _RATE_LIMIT_MESSAGE = "Слишком много запросов к ИИ подряд. Подождите минуту и попробуйте снова."
 _CONNECTIVITY_MESSAGE = (
@@ -16,7 +16,7 @@ _BAD_REQUEST_MESSAGE = (
 _STATUS_ERROR_MESSAGE = "ИИ временно недоступен. Попробуйте ещё раз чуть позже."
 
 # Public: reused by the global aiogram error handler (bot/main.py) as the last-resort
-# message for failures that never reached ClaudeClient.complete (e.g. bugs in handler code).
+# message for failures that never reached GroqClient.complete (e.g. bugs in handler code).
 FALLBACK_MESSAGE = "Извините, не получилось подготовить текст. Попробуйте ещё раз через пару минут."
 
 
@@ -29,15 +29,15 @@ class LLMError(Exception):
 
 
 def to_llm_error(exc: Exception) -> LLMError:
-    """Map an Anthropic SDK exception (or any other) to an LLMError with a Russian user message."""
-    if isinstance(exc, anthropic.RateLimitError):
+    """Map a Groq SDK exception (or any other) to an LLMError with a Russian user message."""
+    if isinstance(exc, groq.RateLimitError):
         return LLMError(str(exc), user_message=_RATE_LIMIT_MESSAGE)
-    if isinstance(exc, (anthropic.APITimeoutError, anthropic.APIConnectionError)):
+    if isinstance(exc, (groq.APITimeoutError, groq.APIConnectionError)):
         return LLMError(str(exc), user_message=_CONNECTIVITY_MESSAGE)
-    if isinstance(exc, anthropic.AuthenticationError):
+    if isinstance(exc, groq.AuthenticationError):
         return LLMError(str(exc), user_message=_AUTH_MESSAGE)
-    if isinstance(exc, anthropic.BadRequestError):
+    if isinstance(exc, groq.BadRequestError):
         return LLMError(str(exc), user_message=_BAD_REQUEST_MESSAGE)
-    if isinstance(exc, anthropic.APIStatusError):
+    if isinstance(exc, groq.APIStatusError):
         return LLMError(str(exc), user_message=_STATUS_ERROR_MESSAGE)
     return LLMError(str(exc), user_message=FALLBACK_MESSAGE)

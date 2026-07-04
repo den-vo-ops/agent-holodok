@@ -73,14 +73,14 @@ async def handle_onboarding_sample(message: Message, state: FSMContext) -> None:
     await message.answer(f"Принял. Уже {len(samples)} текст(ов). Пришли ещё или напиши /done.")
 
 
-async def handle_onboarding_done(message: Message, state: FSMContext, conn, claude_client) -> None:
+async def handle_onboarding_done(message: Message, state: FSMContext, conn, llm_client) -> None:
     data = await state.get_data()
     samples = data.get("samples", [])
     if not samples:
         await message.answer("Пришли хотя бы один текст перед /done.")
         return
     try:
-        profile = analyze_style(claude_client, samples)
+        profile = analyze_style(llm_client, samples)
     except LLMError as exc:
         await message.answer(exc.user_message)
         return
@@ -105,10 +105,10 @@ async def handle_remember_rule(message: Message, conn) -> None:
     await message.answer(f"Запомнил: {rule}")
 
 
-async def handle_scenario_selected(callback: CallbackQuery, state: FSMContext, conn, claude_client) -> None:
+async def handle_scenario_selected(callback: CallbackQuery, state: FSMContext, conn, llm_client) -> None:
     scenario = parse_scenario_callback(callback.data)
     if scenario == "idea":
-        await _generate_and_send(callback.message, conn, claude_client, scenario, user_input="")
+        await _generate_and_send(callback.message, conn, llm_client, scenario, user_input="")
         await callback.answer()
         return
     await state.set_state(ScenarioFlow.waiting_for_input)
@@ -117,21 +117,21 @@ async def handle_scenario_selected(callback: CallbackQuery, state: FSMContext, c
     await callback.answer()
 
 
-async def handle_scenario_input(message: Message, state: FSMContext, conn, claude_client) -> None:
+async def handle_scenario_input(message: Message, state: FSMContext, conn, llm_client) -> None:
     data = await state.get_data()
     scenario = data["scenario"]
     await state.clear()
-    await _generate_and_send(message, conn, claude_client, scenario, message.text)
+    await _generate_and_send(message, conn, llm_client, scenario, message.text)
 
 
-async def _generate_and_send(message: Message, conn, claude_client, scenario: str, user_input: str) -> None:
+async def _generate_and_send(message: Message, conn, llm_client, scenario: str, user_input: str) -> None:
     profile = db.get_style_profile(conn)
     if profile is None:
         await message.answer("Сначала пройди обучение стилю: напиши /start.")
         return
     hard_rules = db.get_hard_rules(conn)
     try:
-        text = generate_content(claude_client, profile, hard_rules, scenario, user_input)
+        text = generate_content(llm_client, profile, hard_rules, scenario, user_input)
     except LLMError as exc:
         await message.answer(exc.user_message)
         return
@@ -140,13 +140,13 @@ async def _generate_and_send(message: Message, conn, claude_client, scenario: st
     await message.answer(text, reply_markup=build_regenerate_and_publish_keyboard(draft_id))
 
 
-async def handle_regenerate(callback: CallbackQuery, conn, claude_client) -> None:
+async def handle_regenerate(callback: CallbackQuery, conn, llm_client) -> None:
     _, draft_id = parse_draft_callback(callback.data)
     scenario, user_input = LAST_GENERATION.get(draft_id, (None, None))
     if scenario is None:
         await callback.answer("Не нашёл контекст для переделки, начни заново.", show_alert=True)
         return
-    await _generate_and_send(callback.message, conn, claude_client, scenario, user_input)
+    await _generate_and_send(callback.message, conn, llm_client, scenario, user_input)
     await callback.answer()
 
 
